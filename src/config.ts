@@ -2,36 +2,6 @@ export const WebsiteUrls = [`https://devcon.org/`, `https://devcon.org/es/`];
 export const DevconFolder = "./output/devcon-local";
 export const CacheDir = "./output/cache";
 export const OptimizedImageDir = "next_image";
-export const DataFiles = [
-  "en",
-  "en/tickets",
-  "en/blogs",
-  "en/city-guide",
-  "en/past-events",
-  "en/faq",
-  "en/news",
-  "en/about",
-  "en/road-to-devcon",
-  "en/dips",
-  "en/supporters",
-  "en/devcon-week",
-  "en/programming",
-  "en/speaker-applications",
-  "es",
-  "es/tickets",
-  "es/blogs",
-  "es/city-guide",
-  "es/past-events",
-  "es/faq",
-  "es/news",
-  "es/about",
-  "es/road-to-devcon",
-  "es/dips",
-  "es/supporters",
-  "es/devcon-week",
-  "es/programming",
-  "es/speaker-applications",
-];
 export const IndexFile = `<!DOCTYPE html>
 <html lang="en">
 <head>

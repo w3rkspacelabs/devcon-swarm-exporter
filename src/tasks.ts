@@ -12,6 +12,17 @@ import {
   downloadCssUrls,
   addIndex,
   removeHtmlComments,
+  downloadAssets,
+  fetchSrcSetImages,
+  removePreloadImages,
+  fetchNextStaticImages,
+  updateNextStaticImages,
+  updateAllNextjsImages,
+  updateAllSrcSetImages,
+  updateAllNextStaticImages,
+  updateAllTinaAssets,
+  optimizeStaticMediaImages,
+  updateAllGoogleStorageAssets,
 } from "./utils";
 import { DevconFolder, WebsiteUrls } from "./config";
 import { green } from "picocolors";
@@ -56,19 +67,26 @@ export const cloneWebsite = async (fresh = false) => {
   }
 };
 
-export const prepareStaticExport = async () => {
+export const buildStatic = async () => {
+  const startTime = Date.now();
+  await optimizeStaticMediaImages();
+  await removePreloadImages();
   await cleanupDirectory();
   await removeHtmlComments();
+  await downloadAssets();
   await downloadMissingCacheFiles();
   await downloadMissingChunks();
   await downloadNextDataFiles();
   await downloadCssUrls();
-
   await updateJsFiles();
-  const files = (await fetchNextjsImages()) || [];
-  for (const file of files) {
-    await updateImageSrcSetValues(file);
-    await updateImgSrcValues(file);
-  }
+  await updateAllNextjsImages();
+  await updateAllSrcSetImages();
+  await updateAllNextStaticImages();
+  await updateAllGoogleStorageAssets();
+  await updateAllTinaAssets();
+  
   addIndex();
+  const endTime = Date.now();
+  const elapsedTime = endTime - startTime;
+  console.log(`Time taken: ${(elapsedTime/60000).toFixed(2)} mins`);
 };

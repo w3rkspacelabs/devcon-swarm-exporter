@@ -1,10 +1,12 @@
 import { $, fs } from "zx";
 import { replaceInFileSync } from "replace-in-file";
-import { DevconFolder, CacheDir, DataFiles, IndexFile } from "./config";
+import { DevconFolder, CacheDir, IndexFile } from "./config";
 import { Curl } from "node-libcurl";
 import sharp from "sharp";
 import { mkdirp } from "fs-extra";
 import { spawn } from "child_process";
+import { parse } from "path";
+import { rmSync } from "fs";
 
 export async function rewriteJsFiles() {
   try {
@@ -25,7 +27,7 @@ export async function rewriteJsFiles() {
   }
 }
 
-export async function rewriteImgSrcSet(lines: string[], file: string) {
+export async function removeImgSrcSet(lines: string[], file: string) {
   for (let j in lines) {
     let line = lines[j];
 
@@ -34,12 +36,48 @@ export async function rewriteImgSrcSet(lines: string[], file: string) {
       from: line,
       to: "",
     };
+    console.log({options});
+    // process.exit(0)
 
     try {
       const results = replaceInFileSync(options);
       console.log("Replacement results:", results);
     } catch (error) {
       console.error("Error occurred:", error);
+    }
+  }
+}
+
+export async function rewriteImgSrcSet(lines: string[], file: string) {
+  for (let j in lines) {
+    let line = lines[j];
+    const imgs = line.slice(8, -1).split(',').map(v => v.trim().split(' '))
+    for (let img of imgs) {
+      const imgSrc = img[0]
+      const imgData = decodeURIComponent(img[0].split('?url=')[1]).split('&amp;').map(v => v.split('=').pop())
+      const imgFile = `${DevconFolder}${imgData[0]}`
+      const q = imgData[2] || '75';
+      const w = imgData[1] || '2048';
+      const targetSrc = `${imgData[0]?.split('.').slice(0, -1).join('.')}_w-${w}_q-${q}.webp`
+      const targetFile = `${DevconFolder}${targetSrc}`
+      const options = {
+        files: file,
+        from: imgSrc,
+        to: targetSrc,
+      };
+      console.log({ line, imgData, imgFile, targetFile, file, img, options })
+      if (!fs.existsSync(targetFile) && fs.existsSync(imgFile)) {
+        await sharp(imgFile)
+          .webp({ quality: 50, alphaQuality: 100 })
+          .resize(parseInt(w))
+          .toFile(targetFile)
+      }
+      try {
+        const results = replaceInFileSync(options);
+        console.log("Replacement results:", results);
+      } catch (error) {
+        console.error("Error occurred:", error);
+      }
     }
   }
 }
@@ -85,6 +123,7 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
     from: from,
     to: targetUrl,
   };
+
   console.log({
     src,
     from,
@@ -125,6 +164,7 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
 }
 
 export async function downloadFile(fetchUrl: string, cacheFile: string) {
+  fetchUrl = fetchUrl.replace(/ /g,'%20');
   if (fs.existsSync(cacheFile)) {
     console.log(`SKIPPING ${cacheFile} exists`);
     return;
@@ -305,14 +345,86 @@ export const addIndex = () => {
 };
 
 export const removeHtmlComments = async () => {
-  console.log(`grep -r -l '<!-- ' ${DevconFolder}`);
-  const out = (await $`grep -r -l '<!-- ' ${DevconFolder}`).stdout;
+  let out = ''
+  try {
+    console.log(`grep -r -l '<!-- ' ${DevconFolder}`);
+    out = (await $`grep -r -l '<!-- ' ${DevconFolder}`).stdout;
+  } catch (err) {
+    return
+  }
   const files = out.trim().split("\n");
   for (let file of files) {
     console.log({ file });
     await $`sed -i 's/<!--.*-->//g' ${file}`;
   }
 };
+
+
+
+export const removePreloadImages = async () => {
+  let out = ''
+  try {
+    console.log(`grep -r -l '<link rel="preload" as="image"' ${DevconFolder}`);
+    out = (await $`grep -r -l '<link rel="preload" as="image"' ${DevconFolder}`).stdout;
+  } catch (err) {
+    return
+  }
+  const files = out.trim().split("\n");
+  for (let file of files) {
+    console.log({ file });
+    const out = (await $`grep -o '<link rel="preload" as="image"[^>]*>' ${file}`).stdout;
+    const lines = out
+        .trim()
+        .split("\n");
+    console.log({lines})
+    for(let line of lines){
+      console.log({line})
+      const options = {
+        files: file,
+        from: line,
+        to: "",
+      };
+      try {
+        const results = replaceInFileSync(options);
+        console.log("Replacement results:", results);
+      } catch (error) {
+        console.error("Error occurred:", error);
+      }
+    }
+  }
+};
+
+export const downloadAssets = async () => {
+  await downloadFile(`https://devcon.org/favicon.ico`, `${DevconFolder}/favicon.ico`)
+  const textures = ['mountain','unicorn','panda','rocket']
+  for(let texture of textures){
+    await downloadFile(`https://devcon.org/assets/textures/${texture}.png`, `${DevconFolder}/assets/textures/${texture}.png`)
+  }
+  console.log(`grep -r -l "assets/" ${DevconFolder}`);
+  const out = (await $`grep -r -l "assets/" ${DevconFolder}`).stdout;
+  const files = out.trim().split("\n");
+  for (let file of files) {
+    console.log(`grep -o 'assets/[^"]*' ${file}`)
+    if (!file.endsWith('.js')) {
+      const out = (await $`grep -o 'assets/[^"]*' ${file}`).stdout;
+      const lines = out
+        .trim()
+        .split("\n");
+      for (let line of lines) {
+        const imgs = line.split(',').map(v => v.split(' ')[0])
+        for (let img of imgs) {
+          console.log({ line, file, img });
+          if (!fs.existsSync(`${DevconFolder}/${img}`) && !img.includes('_w-')) {
+            console.log({ line, file, img });
+            const fetchUrl = `https://devcon.org/${img}`
+            const saveFile = `${DevconFolder}/${img}`
+            await downloadFile(fetchUrl, saveFile)
+          }
+        }
+      }
+    }
+  }
+}
 
 export const downloadCssUrls = async () => {
   try {
@@ -346,7 +458,12 @@ export const downloadCssUrls = async () => {
 export const downloadNextDataFiles = async () => {
   try {
     const buildID = await buildId();
-
+    let DataFiles = ['en', 'es'];
+    const files = (await $`ls -d ${DevconFolder}/en/*/`).stdout.trim().split("\n").map(v => v.split('/en/')[1].slice(0, -1))
+    for (let file of files) {
+      DataFiles.push(`en/${file}`)
+      DataFiles.push(`es/${file}`)
+    }
     for (const filename of DataFiles) {
       const fetchUrl = `https://devcon.org/_next/data/${buildID}/${filename}.json`;
       const cacheFile = `${DevconFolder}/_next/data/${buildID}/${filename}.json`;
@@ -381,12 +498,44 @@ export const fetchNextjsImages = async () => {
   }
 };
 
+export const fetchNextStaticImages = async () => {
+  try {
+    console.log(`grep -r -l "_next/static" ${DevconFolder}`);
+    const out = (await $`grep -r -l "_next/static" ${DevconFolder}`).stdout;
+    const files = out.trim().split("\n").filter(v=>v.trim().endsWith('.js'));
+    return files;
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error("No files containing '_next/static'");
+    } else {
+      console.error("Error fetching files containing '_next/static'", error);
+    }
+  }
+};
+
+export const fetchSrcSetImages = async () => {
+  try {
+    console.log(`grep -r -l "srcSet" ${DevconFolder}`);
+    const out = (await $`grep -r -l "srcSet" ${DevconFolder}`).stdout;
+    const files = out.trim().split("\n");
+    return files;
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error("No files containing 'srcSet'");
+    } else {
+      console.error("Error fetching files containing 'srcSet'", error);
+    }
+  }
+};
+
 export const updateImageSrcSetValues = async (file: string) => {
   console.log({ file, cmd: `grep -o 'srcSet="[^"]*"' ${file}` });
+  // return;
   try {
     const out = (await $`grep -o 'srcSet="[^"]*"' ${file}`).stdout;
     const lines = out.trim().split("\n");
-    await rewriteImgSrcSet(lines, file);
+    // await rewriteImgSrcSet(lines, file);
+    await removeImgSrcSet(lines, file);
     console.log({ rewriteImgSrcSet: true });
   } catch (error: any) {
     if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
@@ -399,9 +548,9 @@ export const updateImageSrcSetValues = async (file: string) => {
 
 export const updateImgSrcValues = async (file: string) => {
   try {
-    const out1 = (await $`grep -o 'src="[^"]*' ${file}`).stdout;
-    const lines1 = out1.trim().split("\n");
-    await rewriteImgSrc(lines1, file);
+    const out = (await $`grep -o 'src="[^"]*' ${file}`).stdout;
+    const lines = out.trim().split("\n");
+    await rewriteImgSrc(lines, file);
   } catch (error: any) {
     if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
       console.error(`${file} does not contain 'src="[^"]*'`);
@@ -410,3 +559,223 @@ export const updateImgSrcValues = async (file: string) => {
     }
   }
 };
+
+export const updateNextStaticImages = async (file: string) => {
+  try {
+    const out = (await $`grep -o '/_next/static/media/[^"]*' ${file}`).stdout;
+    const lines = out.trim().split("\n").filter(v=> !v.endsWith('.webp'));
+    console.log({lines})
+    for(let line of lines){
+      // downloadFile(fet)
+      const imgFile = `${DevconFolder}${line}`
+      const targetSrc = line.split('.').slice(0,-1).join('.')+'.webp'
+      const targetFile = `${DevconFolder}${targetSrc}`
+      console.log({imgFile,targetFile})
+      if(!fs.existsSync(targetFile)){
+        await sharp(imgFile)
+          .webp({ quality: 50, alphaQuality: 100 })
+          .toFile(targetFile)
+      }
+      if(fs.existsSync(imgFile)){
+        rmSync(imgFile);
+      }
+      const options = {
+        files: file,
+        from: line,
+        to: targetSrc,
+      };
+      console.log({options});
+      // process.exit(0)
+      try {
+        const results = replaceInFileSync(options);
+        console.log("Replacement results:", results);
+      } catch (error) {
+        console.error("Error occurred:", error);
+      }
+      // process.exit(0)
+    }
+    
+    // await rewriteImgSrc(lines1, file);
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error(`${file} does not contain 'src="[^"]*'`);
+    } else {
+      console.error(`Error looking up 'src="[^"]*' in ${file}`, error);
+    }
+  }
+};
+
+
+export const updateAllNextjsImages = async () => {
+  const files = (await fetchNextjsImages()) || [];
+  for (const file of files) {
+    await updateImageSrcSetValues(file);
+    await updateImgSrcValues(file);
+  }
+}
+
+export const updateAllSrcSetImages = async () => {
+  const files = (await fetchSrcSetImages()) || [];
+  for (const file of files) {
+    await updateImageSrcSetValues(file);
+    await updateImgSrcValues(file);
+  }
+}
+
+export const updateAllNextStaticImages = async () => {
+  const files = (await fetchNextStaticImages()) || [];
+  for (const file of files) {
+    await updateNextStaticImages(file);
+  }
+}
+
+export const fetchTinaAssets = async () => {
+  try {
+    console.log(`grep -r -l "assets.tina.io" ${DevconFolder}`);
+    const out = (await $`grep -r -l "assets.tina.io" ${DevconFolder}`).stdout;
+    const files = out.trim().split("\n");
+    return files;
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error("No files containing 'assets.tina.io'");
+    } else {
+      console.error("Error fetching files containing 'assets.tina.io'", error);
+    }
+  }
+  return []
+}
+
+export const updateAllTinaAssets = async () => {
+  const files = (await fetchTinaAssets()) || [];
+  console.log({files})
+  for (const file of files) {
+    console.log({file})
+    const out = (await $`grep -o 'https://assets.tina.io[^"]*' ${file}`).stdout;
+    const lines = out.trim().split("\n");
+    for(let line of lines){
+      // line = line.replace(' ','%20');
+      console.log({line});
+      const fetchUrl = line;
+      const imgFile = `${DevconFolder}/_next/static/media/${line.split('/').pop()}`.replace(/ /g,'_');
+      await downloadFile(fetchUrl,imgFile)
+
+      const targetFile = imgFile.split('.').slice(0,-1).join('.')+'.webp'
+      const targetSrc = targetFile.replace(DevconFolder,'')
+      console.log({fetchUrl,saveFile: imgFile,targetFile,targetSrc})
+      // process.exit(0);
+      if(!fs.existsSync(targetFile)){
+        await sharp(imgFile)
+          .webp({ quality: 50, alphaQuality: 100 })
+          .toFile(targetFile)
+      }
+      if(fs.existsSync(imgFile)){
+        rmSync(imgFile);
+      }
+      const options = {
+        files: file,
+        from: line,
+        to: targetSrc,
+      };
+      console.log({options});
+      // process.exit(0)
+      try {
+        const results = replaceInFileSync(options);
+        console.log("Replacement results:", results);
+      } catch (error) {
+        console.error("Error occurred:", error);
+      }
+    }
+  }
+}
+
+export const fetchGoogleStorageAssets = async () => {
+  try {
+    console.log(`grep -r -l "storage.googleapis.com" ${DevconFolder}`);
+    const out = (await $`grep -r -l "storage.googleapis.com" ${DevconFolder}`).stdout;
+    const files = out.trim().split("\n");
+    return files;
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error("No files containing 'storage.googleapis.com'");
+    } else {
+      console.error("Error fetching files containing 'storage.googleapis.com'", error);
+    }
+  }
+  return []
+}
+
+export const updateAllGoogleStorageAssets = async () => {
+  const files = (await fetchGoogleStorageAssets()) || [];
+  console.log({files})
+  
+  for (const file of files) {
+    console.log({file})
+    const out = (await $`grep -o 'https://storage.googleapis.com[^"]*' ${file}`).stdout;
+    const lines = out.trim().split("\n");
+    for(let line of lines){
+      // line = line.replace(' ','%20');
+      console.log({line});
+      const fetchUrl = line;
+      const imgFile = `${DevconFolder}/_next/static/media/${line.split('/').pop()}`.replace(/ /g,'_');
+      await downloadFile(fetchUrl,imgFile)
+
+      const targetFile = imgFile.split('.').slice(0,-1).join('.')+'.webp'
+      const targetSrc = targetFile.replace(DevconFolder,'')
+      console.log({fetchUrl,imgFile,targetFile,targetSrc})
+      
+      if(!fs.existsSync(targetFile)){
+        await sharp(imgFile, { failOnError: false })
+          .webp({ quality: 50, alphaQuality: 100 })
+          .toFile(targetFile)
+      }
+      // process.exit(0);
+      if(fs.existsSync(imgFile)){
+        rmSync(imgFile);
+      }
+      const options = {
+        files: file,
+        from: line,
+        to: targetSrc,
+      };
+      console.log({options});
+      try {
+        const results = replaceInFileSync(options);
+        console.log("Replacement results:", results);
+      } catch (error) {
+        console.error("Error occurred:", error);
+      }
+      // process.exit(0)
+    }
+  }
+}
+
+export const optimizeImageFile = async (file:string, quality=50)=>{
+  const ofile = `${DevconFolder}/_next/static/media/${file}`
+    const nfile = `${DevconFolder}/_next/static/media/orig.${file}`
+    const stats = fs.statSync(ofile);
+    const size = Math.round(stats.size / 1000) 
+    const targetFile = file.split('.').slice(0,-1).join('.')+'.webp'
+    console.log({file,targetFile,size,ofile,nfile})
+    if(size > 120){
+      fs.renameSync(ofile,nfile);
+      await sharp(nfile)
+          .webp({ quality, alphaQuality: 100 })
+          .toFile(ofile);
+      fs.rmSync(nfile);
+    }
+}
+
+
+export const optimizeStaticMediaImages = async ()=>{
+  const files = fs.readdirSync(`${DevconFolder}/_next/static/media`);
+  const mainFiles = files.filter(v=>v.startsWith('left.') || v.startsWith('right.'));
+  console.log({files,mainFiles})
+  for(let file of mainFiles){
+    await optimizeImageFile(file,50);
+  }
+  process.exit(0);
+  for(let file of files){
+    await optimizeImageFile(file);
+  }
+  
+}
