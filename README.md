@@ -2,7 +2,7 @@
 CLI tool to build an optimized static export of [devcon app frontend](https://github.com/efdevcon/monorepo/tree/main/devcon-app)
 
 ## Requirements
-- `node` >= `20`
+- `node` = `18`
 - [httrack](https://github.com/xroche/httrack)
 
 ### Install latest Node
@@ -76,5 +76,3 @@ Running this command should fetch missing resources, optimize the nextjs images 
 Follow the steps in this blogpost to publish the `./output/devcon-local` folder to Swarm and connect it to an ENS domain
 
 - https://blog.ethswarm.org/foundation/2023/how-to-publish-a-website-on-swarm-using-the-swarm-desktop-app-a-step-by-step-guide/
-
-
