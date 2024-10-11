@@ -5,8 +5,6 @@ import { Curl } from "node-libcurl";
 import sharp from "sharp";
 import { mkdirp } from "fs-extra";
 import { spawn } from "child_process";
-import { parse } from "path";
-import { rmSync } from "fs";
 
 export async function rewriteJsFiles() {
   try {
@@ -37,8 +35,6 @@ export async function removeImgSrcSet(lines: string[], file: string) {
       to: "",
     };
     console.log({options});
-    // process.exit(0)
-
     try {
       const results = replaceInFileSync(options);
       console.log("Replacement results:", results);
@@ -65,13 +61,7 @@ export async function rewriteImgSrcSet(lines: string[], file: string) {
         from: imgSrc,
         to: targetSrc,
       };
-      console.log({ line, imgData, imgFile, targetFile, file, img, options })
-      // if (!fs.existsSync(targetFile) && fs.existsSync(imgFile)) {
-      //   await sharp(imgFile)
-      //     .webp({ quality: 50, alphaQuality: 100 })
-      //     .resize(parseInt(w))
-      //     .toFile(targetFile)
-      // }
+      console.log({ line, imgData, imgFile, targetFile, file, img, options });
       await sharp2webp(imgFile, targetFile, 25, parseInt(w))
       try {
         const results = replaceInFileSync(options);
@@ -166,9 +156,6 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
   }
   if (makeOptimizedImage) {
     console.log({ optimize: true, fetchUrl, cacheFile });
-    // await sharp(cacheFile)
-    //   .webp({ quality: 10, alphaQuality: 100 })
-    //   .toFile(targetFile);
     await sharp2webp(cacheFile, targetFile);
   } else {
     console.log(`SKIPPING optimized webp conversion ${cacheFile}`);
@@ -182,10 +169,10 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
   }
 }
 
-export async function downloadFile(fetchUrl: string, saveFile: string) {
+export async function downloadFile(fetchUrl: string, saveFile: string, overwrite = false) {
   fetchUrl = fetchUrl.replace(/ /g,'%20');
   await mkdirp(saveFile.split("/").slice(0, -1).join("/"));
-  if (fs.existsSync(saveFile)) {
+  if (fs.existsSync(saveFile) && !overwrite) {
     console.log(`SKIPPING ${saveFile} exists`);
     return;
   }else{
@@ -558,11 +545,9 @@ export const fetchSrcSetImages = async () => {
 
 export const updateImageSrcSetValues = async (file: string) => {
   console.log({ file, cmd: `grep -o 'srcSet="[^"]*"' ${file}` });
-  // return;
   try {
     const out = (await $`grep -o 'srcSet="[^"]*"' ${file}`).stdout;
     const lines = out.trim().split("\n");
-    // await rewriteImgSrcSet(lines, file);
     await removeImgSrcSet(lines, file);
     console.log({ rewriteImgSrcSet: true });
   } catch (error: any) {
@@ -594,37 +579,24 @@ export const updateNextStaticImages = async (file: string) => {
     const lines = out.trim().split("\n").filter(v=> !v.endsWith('.webp'));
     console.log({lines})
     for(let line of lines){
-      // downloadFile(fet)
       const imgFile = `${DevconFolder}${line}`
       const targetSrc = line.split('.').slice(0,-1).join('.')+'.webp'
       const targetFile = `${DevconFolder}${targetSrc}`
       console.log({imgFile,targetFile})
-      await sharp2webp(imgFile,targetFile)
-      // if(!fs.existsSync(targetFile)){
-      //   await sharp(imgFile)
-      //     .webp({ quality: 50, alphaQuality: 100 })
-      //     .toFile(targetFile)
-      // }
-      // if(fs.existsSync(imgFile)){
-      //   // rmSync(imgFile);
-      // }
+      await sharp2webp(imgFile,targetFile);
       const options = {
         files: file,
         from: line,
         to: targetSrc,
       };
       console.log({options});
-      // process.exit(0)
       try {
         const results = replaceInFileSync(options);
         console.log("Replacement results:", results);
       } catch (error) {
         console.error("Error occurred:", error);
       }
-      // process.exit(0)
     }
-    
-    // await rewriteImgSrc(lines1, file);
   } catch (error: any) {
     if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
       console.error(`${file} does not contain 'src="[^"]*'`);
@@ -682,7 +654,6 @@ export const updateAllTinaAssets = async () => {
     const out = (await $`grep -o 'https://assets.tina.io[^"]*' ${file}`).stdout;
     const lines = out.trim().split("\n");
     for(let line of lines){
-      // line = line.replace(' ','%20');
       console.log({line});
       const fetchUrl = line;
       const imgFile = `${DevconFolder}/_next/static/media/${line.split('/').pop()}`.replace(/ /g,'_');
@@ -690,24 +661,14 @@ export const updateAllTinaAssets = async () => {
 
       const targetFile = imgFile.split('.').slice(0,-1).join('.')+'.webp'
       const targetSrc = targetFile.replace(DevconFolder,'')
-      console.log({fetchUrl,saveFile: imgFile,targetFile,targetSrc})
-      // process.exit(0);
-      // if(!fs.existsSync(targetFile)){
-      //   await sharp(imgFile)
-      //     .webp({ quality: 50, alphaQuality: 100 })
-      //     .toFile(targetFile)
-      // }
-      await sharp2webp(imgFile,targetFile)
-      // if(fs.existsSync(imgFile)){
-      //   // rmSync(imgFile);
-      // }
+      console.log({fetchUrl,saveFile: imgFile,targetFile,targetSrc});
+      await sharp2webp(imgFile,targetFile);
       const options = {
         files: file,
         from: line,
         to: targetSrc,
       };
       console.log({options});
-      // process.exit(0)
       try {
         const results = replaceInFileSync(options);
         console.log("Replacement results:", results);
@@ -743,7 +704,6 @@ export const updateAllGoogleStorageAssets = async () => {
     const out = (await $`grep -o 'https://storage.googleapis.com[^"]*' ${file}`).stdout;
     const lines = out.trim().split("\n");
     for(let line of lines){
-      // line = line.replace(' ','%20');
       console.log({line});
       const fetchUrl = line;
       const imgFile = `${DevconFolder}/_next/static/media/${line.split('/').pop()}`.replace(/ /g,'_');
@@ -752,16 +712,7 @@ export const updateAllGoogleStorageAssets = async () => {
       const targetFile = imgFile.split('.').slice(0,-1).join('.')+'.webp'
       const targetSrc = targetFile.replace(DevconFolder,'')
       console.log({fetchUrl,imgFile,targetFile,targetSrc})
-      await sharp2webp(imgFile,targetFile)
-      // if(!fs.existsSync(targetFile)){
-      //   await sharp(imgFile, { failOnError: false })
-      //     .webp({ quality: 50, alphaQuality: 100 })
-      //     .toFile(targetFile)
-      // }
-      // // process.exit(0);
-      // if(fs.existsSync(imgFile)){
-      //   // rmSync(imgFile);
-      // }
+      await sharp2webp(imgFile,targetFile);
       const options = {
         files: file,
         from: line,
@@ -774,7 +725,6 @@ export const updateAllGoogleStorageAssets = async () => {
       } catch (error) {
         console.error("Error occurred:", error);
       }
-      // process.exit(0)
     }
   }
 }
@@ -789,17 +739,12 @@ export const optimizeImageFile = async (file:string, quality=50)=>{
     if(size > 200){
       fs.renameSync(ofile,nfile);
       await sharp2webp(nfile,ofile,quality);
-      // await sharp(nfile, { failOnError: false })
-      //     .webp({ quality, alphaQuality: 100 })
-      //     .toFile(ofile);
-      // // fs.rmSync(nfile);
     }
 }
 
 
 export const optimizeStaticMediaImages = async ()=>{
   const files = fs.readdirSync(`${DevconFolder}/_next/static/media`);
-  // process.exit(0);
   for(let file of files){
     await optimizeImageFile(file);
   }
@@ -808,4 +753,20 @@ export const optimizeStaticMediaImages = async ()=>{
   for(let file of mainFiles){
     await optimizeImageFile(file,50);
   }
+}
+
+
+export const fetchTicketAvailability = async ()=>{
+  const url = 'https://devcon.org/api/tickets/availability/';
+  downloadFile(url,`${DevconFolder}/api/tickets/availability.json`, true);
+  console.log(`grep -r -l "/api/tickets/availability" ${DevconFolder}`);
+  const out = (await $`grep -r -l "/api/tickets/availability" ${DevconFolder}`).stdout;
+  const files = out.trim().split("\n");
+  console.log({files});
+    const file = files[0];
+    replaceInFileSync({
+      files: file,
+      from: '"/api/tickets/availability"',
+      to: '"/api/tickets/availability.json"',
+    });
 }

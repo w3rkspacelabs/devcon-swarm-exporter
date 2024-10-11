@@ -23,6 +23,7 @@ import {
   updateAllTinaAssets,
   optimizeStaticMediaImages,
   updateAllGoogleStorageAssets,
+  fetchTicketAvailability,
 } from "./utils";
 import { DevconFolder, WebsiteUrls } from "./config";
 import { green } from "picocolors";
@@ -101,6 +102,7 @@ export const buildStatic = async () => {
   await updateAllGoogleStorageAssets();
   await updateAllTinaAssets();
   await optimizeStaticMediaImages();
+  await fetchTicketAvailability();
   addIndex();
   const endTime = Date.now();
   const elapsedTime = endTime - startTime;
