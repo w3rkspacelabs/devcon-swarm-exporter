@@ -66,12 +66,13 @@ export async function rewriteImgSrcSet(lines: string[], file: string) {
         to: targetSrc,
       };
       console.log({ line, imgData, imgFile, targetFile, file, img, options })
-      if (!fs.existsSync(targetFile) && fs.existsSync(imgFile)) {
-        await sharp(imgFile)
-          .webp({ quality: 50, alphaQuality: 100 })
-          .resize(parseInt(w))
-          .toFile(targetFile)
-      }
+      // if (!fs.existsSync(targetFile) && fs.existsSync(imgFile)) {
+      //   await sharp(imgFile)
+      //     .webp({ quality: 50, alphaQuality: 100 })
+      //     .resize(parseInt(w))
+      //     .toFile(targetFile)
+      // }
+      await sharp2webp(imgFile, targetFile, 25, parseInt(w))
       try {
         const results = replaceInFileSync(options);
         console.log("Replacement results:", results);
@@ -79,6 +80,23 @@ export async function rewriteImgSrcSet(lines: string[], file: string) {
         console.error("Error occurred:", error);
       }
     }
+  }
+}
+
+export const sharp2webp = async(imgFile:string,targetFile:string,quality=25,w=0)=>{
+  if(fs.existsSync(imgFile) && !fs.existsSync(targetFile)){
+    if(w > 0){
+      return sharp(imgFile, { failOnError: false })
+        .webp({ quality, alphaQuality: 100 })
+        .resize(w)
+        .toFile(targetFile)
+    }else{
+      return sharp(imgFile, { failOnError: false })
+        .webp({ quality, alphaQuality: 100 })
+        .toFile(targetFile)
+    }
+  }else{
+    console.log(`SKIPPING: ${!fs.existsSync(imgFile) ? `${imgFile} does not exist` : ''} | ${fs.existsSync(targetFile) ? `${targetFile} exists` : ''}` )
   }
 }
 
@@ -148,9 +166,10 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
   }
   if (makeOptimizedImage) {
     console.log({ optimize: true, fetchUrl, cacheFile });
-    await sharp(cacheFile)
-      .webp({ quality: 10, alphaQuality: 100 })
-      .toFile(targetFile);
+    // await sharp(cacheFile)
+    //   .webp({ quality: 10, alphaQuality: 100 })
+    //   .toFile(targetFile);
+    await sharp2webp(cacheFile, targetFile);
   } else {
     console.log(`SKIPPING optimized webp conversion ${cacheFile}`);
   }
@@ -163,16 +182,23 @@ export async function fetchAndRewriteImgUrl(src: string, file: string) {
   }
 }
 
-export async function downloadFile(fetchUrl: string, cacheFile: string) {
+export async function downloadFile(fetchUrl: string, saveFile: string) {
   fetchUrl = fetchUrl.replace(/ /g,'%20');
-  if (fs.existsSync(cacheFile)) {
-    console.log(`SKIPPING ${cacheFile} exists`);
+  await mkdirp(saveFile.split("/").slice(0, -1).join("/"));
+  if (fs.existsSync(saveFile)) {
+    console.log(`SKIPPING ${saveFile} exists`);
     return;
+  }else{
+    const cacheFile = `${CacheDir}/${saveFile.split('/').pop()}`;
+    if(fs.existsSync(cacheFile)){
+      console.log(`COPYING FROM CACHE: ${saveFile}`);
+      fs.copyFileSync(cacheFile,saveFile);
+      return;
+    }
   }
-  await mkdirp(cacheFile.split("/").slice(0, -1).join("/"));
   return new Promise((resolve, reject) => {
     const curl = new Curl();
-    const file = fs.createWriteStream(cacheFile);
+    const file = fs.createWriteStream(saveFile);
 
     curl.setOpt("URL", fetchUrl);
     curl.setOpt("FOLLOWLOCATION", true);
@@ -184,7 +210,7 @@ export async function downloadFile(fetchUrl: string, cacheFile: string) {
 
     curl.on("end", () => {
       file.end();
-      console.log(`Download complete: ${cacheFile}`);
+      console.log(`Download complete: ${saveFile}`);
       curl.close();
       resolve(true);
     });
@@ -355,7 +381,9 @@ export const removeHtmlComments = async () => {
   const files = out.trim().split("\n");
   for (let file of files) {
     console.log({ file });
-    await $`sed -i 's/<!--.*-->//g' ${file}`;
+    await $`sed -i 's/<!-- -->/<!--_-->/g' ${file}`;
+    await $`sed -i 's/<!-- .*-->//g' ${file}`;
+    await $`sed -i 's/<!--_-->/<!-- -->/g' ${file}`;
   }
 };
 
@@ -571,14 +599,15 @@ export const updateNextStaticImages = async (file: string) => {
       const targetSrc = line.split('.').slice(0,-1).join('.')+'.webp'
       const targetFile = `${DevconFolder}${targetSrc}`
       console.log({imgFile,targetFile})
-      if(!fs.existsSync(targetFile)){
-        await sharp(imgFile)
-          .webp({ quality: 50, alphaQuality: 100 })
-          .toFile(targetFile)
-      }
-      if(fs.existsSync(imgFile)){
-        rmSync(imgFile);
-      }
+      await sharp2webp(imgFile,targetFile)
+      // if(!fs.existsSync(targetFile)){
+      //   await sharp(imgFile)
+      //     .webp({ quality: 50, alphaQuality: 100 })
+      //     .toFile(targetFile)
+      // }
+      // if(fs.existsSync(imgFile)){
+      //   // rmSync(imgFile);
+      // }
       const options = {
         files: file,
         from: line,
@@ -663,14 +692,15 @@ export const updateAllTinaAssets = async () => {
       const targetSrc = targetFile.replace(DevconFolder,'')
       console.log({fetchUrl,saveFile: imgFile,targetFile,targetSrc})
       // process.exit(0);
-      if(!fs.existsSync(targetFile)){
-        await sharp(imgFile)
-          .webp({ quality: 50, alphaQuality: 100 })
-          .toFile(targetFile)
-      }
-      if(fs.existsSync(imgFile)){
-        rmSync(imgFile);
-      }
+      // if(!fs.existsSync(targetFile)){
+      //   await sharp(imgFile)
+      //     .webp({ quality: 50, alphaQuality: 100 })
+      //     .toFile(targetFile)
+      // }
+      await sharp2webp(imgFile,targetFile)
+      // if(fs.existsSync(imgFile)){
+      //   // rmSync(imgFile);
+      // }
       const options = {
         files: file,
         from: line,
@@ -722,16 +752,16 @@ export const updateAllGoogleStorageAssets = async () => {
       const targetFile = imgFile.split('.').slice(0,-1).join('.')+'.webp'
       const targetSrc = targetFile.replace(DevconFolder,'')
       console.log({fetchUrl,imgFile,targetFile,targetSrc})
-      
-      if(!fs.existsSync(targetFile)){
-        await sharp(imgFile, { failOnError: false })
-          .webp({ quality: 50, alphaQuality: 100 })
-          .toFile(targetFile)
-      }
-      // process.exit(0);
-      if(fs.existsSync(imgFile)){
-        rmSync(imgFile);
-      }
+      await sharp2webp(imgFile,targetFile)
+      // if(!fs.existsSync(targetFile)){
+      //   await sharp(imgFile, { failOnError: false })
+      //     .webp({ quality: 50, alphaQuality: 100 })
+      //     .toFile(targetFile)
+      // }
+      // // process.exit(0);
+      // if(fs.existsSync(imgFile)){
+      //   // rmSync(imgFile);
+      // }
       const options = {
         files: file,
         from: line,
@@ -756,26 +786,26 @@ export const optimizeImageFile = async (file:string, quality=50)=>{
     const size = Math.round(stats.size / 1000) 
     const targetFile = file.split('.').slice(0,-1).join('.')+'.webp'
     console.log({file,targetFile,size,ofile,nfile})
-    if(size > 120){
+    if(size > 200){
       fs.renameSync(ofile,nfile);
-      await sharp(nfile)
-          .webp({ quality, alphaQuality: 100 })
-          .toFile(ofile);
-      fs.rmSync(nfile);
+      await sharp2webp(nfile,ofile,quality);
+      // await sharp(nfile, { failOnError: false })
+      //     .webp({ quality, alphaQuality: 100 })
+      //     .toFile(ofile);
+      // // fs.rmSync(nfile);
     }
 }
 
 
 export const optimizeStaticMediaImages = async ()=>{
   const files = fs.readdirSync(`${DevconFolder}/_next/static/media`);
+  // process.exit(0);
+  for(let file of files){
+    await optimizeImageFile(file);
+  }
   const mainFiles = files.filter(v=>v.startsWith('left.') || v.startsWith('right.'));
   console.log({files,mainFiles})
   for(let file of mainFiles){
     await optimizeImageFile(file,50);
   }
-  process.exit(0);
-  for(let file of files){
-    await optimizeImageFile(file);
-  }
-  
 }

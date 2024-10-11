@@ -67,9 +67,25 @@ export const cloneWebsite = async (fresh = false) => {
   }
 };
 
+const FN = {
+  removePreloadImages,
+  cleanupDirectory,
+  downloadAssets,
+  downloadMissingCacheFiles,
+  downloadMissingChunks,
+  downloadNextDataFiles,
+  downloadCssUrls,
+  updateJsFiles,
+  updateAllNextjsImages,
+  updateAllSrcSetImages,
+  updateAllNextStaticImages,
+  updateAllGoogleStorageAssets,
+  updateAllTinaAssets,
+  optimizeStaticMediaImages
+}
+
 export const buildStatic = async () => {
   const startTime = Date.now();
-  await optimizeStaticMediaImages();
   await removePreloadImages();
   await cleanupDirectory();
   await removeHtmlComments();
@@ -84,7 +100,7 @@ export const buildStatic = async () => {
   await updateAllNextStaticImages();
   await updateAllGoogleStorageAssets();
   await updateAllTinaAssets();
-  
+  await optimizeStaticMediaImages();
   addIndex();
   const endTime = Date.now();
   const elapsedTime = endTime - startTime;
