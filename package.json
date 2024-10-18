@@ -6,7 +6,7 @@
   "scripts": {
     "start": "tsx src/index.ts",
     "clone": "tsx src/index.ts clone-fresh",
-    "build": "tsx src/index.ts build",
+    "export": "tsx src/index.ts export",
     "serve": "npx serve ./output/devcon-local"
   },
   "keywords": ["Swarm","Devcon","Nextjs","Static","Export"],
