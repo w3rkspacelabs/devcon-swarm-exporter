@@ -24,9 +24,9 @@ jobs:
         with:
           dir: ./output/devcon-local/
           index-document: index.html
-          postage-batch-id: ${{ secrets.POSTAGE_BATCH_ID }}
-          bee-url: ${{ secrets.BEE_URL }}
-          timeout: 600000
+          postage-batch-id: ${{ secrets.PRIVATE_POSTAGE_BATCH_ID }}
+          bee-url: ${{ secrets.PRIVATE_BEE_URL }}
+          timeout: 300000
           deferred: false
 
       - name: Setup feed
@@ -35,9 +35,9 @@ jobs:
         with:
           reference: ${{ steps.upload.outputs.reference }}
           topic: "swarm-homepage"
-          postage-batch-id: ${{ secrets.POSTAGE_BATCH_ID }}
-          bee-url: ${{ secrets.BEE_URL }}
-          signer: ${{ secrets.SIGNER }}
+          postage-batch-id: ${{ secrets.PRIVATE_POSTAGE_BATCH_ID }}
+          bee-url: ${{ secrets.PRIVATE_BEE_URL }}
+          signer: ${{ secrets.PRIVATE_SIGNER }}
 
       - uses: ethersphere/swarm-actions/reference-to-cid@v0
         id: cid
