@@ -85,7 +85,7 @@ const FN = {
   optimizeStaticMediaImages
 }
 
-export const buildStatic = async () => {
+export const exportStatic = async () => {
   const startTime = Date.now();
   await removePreloadImages();
   await cleanupDirectory();

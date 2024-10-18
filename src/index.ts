@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { cloneWebsite, buildStatic } from "./tasks";
+import { cloneWebsite, exportStatic } from "./tasks";
 
 const program = new Command();
 
@@ -24,12 +24,12 @@ program
     await cloneWebsite(true);
   });
 program
-  .command("build")
+  .command("export")
   .description(
     "Build an optimised static export"
   )
   .action(async () => {
-    await buildStatic();
+    await exportStatic();
   });
 
 program.parse(process.argv);
