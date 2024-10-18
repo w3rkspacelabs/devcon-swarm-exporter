@@ -28,7 +28,6 @@ export async function rewriteJsFiles() {
 export async function removeImgSrcSet(lines: string[], file: string) {
   for (let j in lines) {
     let line = lines[j];
-
     const options = {
       files: file,
       from: line,
@@ -753,6 +752,7 @@ export const optimizeStaticMediaImages = async ()=>{
   for(let file of mainFiles){
     await optimizeImageFile(file,50);
   }
+  await $`rm -rf ${DevconFolder}/_next/static/media/orig.*`;
 }
 
 
