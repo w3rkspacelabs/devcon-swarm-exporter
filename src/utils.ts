@@ -698,6 +698,42 @@ export const fetchGoogleStorageAssets = async () => {
   return []
 }
 
+const fetchTicketsUrlFiles = async () => {
+  try {
+    console.log(`grep -r -l "/tickets" ${DevconFolder}`);
+    const out = (await $`grep -r -l "/tickets" ${DevconFolder}`).stdout;
+    const files = out.trim().split("\n");
+    return files;
+  } catch (error: any) {
+    if (error.exitCode === 1 && error.stdout == "" && error.stderr == "") {
+      console.error("No files containing '/tickets'");
+    } else {
+      console.error("Error fetching files containing '/tickets'", error);
+    }
+  }
+  return []
+}
+
+export const updateTicketsUrl = async () => {
+  const files = (await fetchTicketsUrlFiles()) || [];
+  console.log({ files });
+  for (const file of files) {
+    console.log({ file });
+    const options = {
+      files: file,
+      from: `"/tickets"`,
+      to: `"https://devcon.org/tickets"`,
+    };
+    console.log({ options });
+    try {
+      const results = replaceInFileSync(options);
+      console.log("Replacement  results:", results);
+    } catch (error) {
+      console.error("Error occurred:", error);
+    }
+  }
+}
+
 export const updateAllGoogleStorageAssets = async () => {
   const files = (await fetchGoogleStorageAssets()) || [];
   console.log({files})
