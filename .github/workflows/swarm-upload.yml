@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '18'
+      - name: Install HTTrack
+        run: sudo apt-get update && sudo apt-get install -y httrack
       - name: Build Static Export
         run: |
           npm ci

@@ -1,6 +1,6 @@
 import { $, fs } from "zx";
 import { replaceInFileSync } from "replace-in-file";
-import { DevconFolder, CacheDir, IndexFile } from "./config";
+import { DevconFolder, CacheDir, IndexFile, TicketsIndexFileEn, TicketsIndexFileEs } from "./config";
 import { Curl } from "node-libcurl";
 import sharp from "sharp";
 import { mkdirp } from "fs-extra";
@@ -354,6 +354,10 @@ const buildId = async () => {
 
 export const addIndex = () => {
   fs.writeFileSync(`${DevconFolder}/index.html`, IndexFile);
+  fs.renameSync(`${DevconFolder}/en/tickets/index.html`, `${DevconFolder}/en/tickets/index.html.orig`);
+  fs.writeFileSync(`${DevconFolder}/en/tickets/index.html`, TicketsIndexFileEn);
+  fs.renameSync(`${DevconFolder}/es/tickets/index.html`, `${DevconFolder}/es/tickets/index.html.orig`);
+  fs.writeFileSync(`${DevconFolder}/es/tickets/index.html`, TicketsIndexFileEs);
 };
 
 export const removeHtmlComments = async () => {
