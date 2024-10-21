@@ -51,7 +51,7 @@ Options:
 Commands:
   clone           Clone the website devcon.org using httrack
   clone-fresh     Deletes existing folder and clones the website devcon.org using httrack
-  make-static     Fetch all dynamic next/image URLs and rewrite to use optimized images
+  export          Build an optimised static export
   help [command]  display help for command
 ```
 ### Running CLI commands
@@ -67,7 +67,7 @@ This clones the website using `httrack` locally to the `./output/devcon-local` f
 
 ### Run static export rewrites, fixes & optimizations
 ```
-npm start make-static
+npm start export
 ```
 Running this command should fetch missing resources, optimize the nextjs images and update the relevant urls to make the static export work
 
